@@ -1,16 +1,14 @@
-from optopsy.option_strategies import long_call, short_call, long_put, short_put
-from optopsy.data import get
-from optopsy.statistics import results
 from datetime import datetime
 import os
-import pytest
+from optopsy.option_strategies import long_call, short_call, long_call_spread
+from optopsy.data import get
 
 CURRENT_FILE = os.path.abspath(os.path.dirname(__file__))
 TEST_FILE_PATH_FULL = os.path.join(
     CURRENT_FILE, "../test_data/test_options_data_full.csv"
 )
 
-hod_struct = (
+HOD_STRUCT = (
     ("underlying_symbol", 0),
     ("underlying_price", 1),
     ("option_type", 5),
@@ -25,28 +23,128 @@ hod_struct = (
     ("vega", 18),
 )
 
-DATA = get(TEST_FILE_PATH_FULL, hod_struct, prompt=False)
+DATA = get(TEST_FILE_PATH_FULL, HOD_STRUCT, prompt=False)
 
 
-def test_win_count():
+def test_avg_profit_long_singles():
+    filters = {
+        "start_date": datetime(2018, 1, 1),
+        "end_date": datetime(2018, 2, 28),
+        "entry_dte": 7,
+        "leg1_delta": 0.50,
+        "contract_size": 1,
+        "expr_type": "SPXW",
+    }
+    spread = long_call(DATA, filters)
+    result = spread.avg_profit()
+    print(spread)
+    assert result == -1495
+
+
+def test_avg_profit_short_singles():
+    filters = {
+        "start_date": datetime(2018, 1, 1),
+        "end_date": datetime(2018, 2, 28),
+        "entry_dte": 7,
+        "leg1_delta": 0.50,
+        "contract_size": 1,
+        "expr_type": "SPXW",
+    }
+    spread = short_call(DATA, filters)
+    result = spread.avg_profit()
+    print(spread)
+    assert result == 1057.5
+
+
+def test_avg_profit_verticals():
+    filters = {
+        "start_date": datetime(2018, 1, 1),
+        "end_date": datetime(2018, 2, 28),
+        "entry_dte": 7,
+        "leg1_delta": 0.50,
+        "leg2_delta": 0.30,
+        "contract_size": 1,
+        "expr_type": "SPXW",
+    }
+    spread = long_call_spread(DATA, filters)
+    result = spread.avg_profit()
+    print(spread)
+    assert result == -720
+
+
+def test_avg_cost_long_singles():
+    filters = {
+        "start_date": datetime(2018, 1, 1),
+        "end_date": datetime(2018, 2, 28),
+        "entry_dte": 7,
+        "leg1_delta": 0.50,
+        "contract_size": 1,
+        "expr_type": "SPXW",
+    }
+    spread = long_call(DATA, filters)
+    result = spread.avg_cost()
+    print(result)
+    assert result == 1785
+
+
+def test_avg_cost_short_singles():
+    filters = {
+        "start_date": datetime(2018, 1, 1),
+        "end_date": datetime(2018, 2, 28),
+        "entry_dte": 7,
+        "leg1_delta": 0.50,
+        "contract_size": 1,
+        "expr_type": "SPXW",
+    }
+    spread = short_call(DATA, filters)
+    result = spread.avg_cost()
+    print(result)
+    assert result == -1710
+
+
+def test_avg_cost_verticals():
+    filters = {
+        "start_date": datetime(2018, 1, 1),
+        "end_date": datetime(2018, 2, 28),
+        "entry_dte": 7,
+        "leg1_delta": 0.50,
+        "leg2_delta": 0.30,
+        "contract_size": 1,
+        "expr_type": "SPXW",
+    }
+    spread = long_call_spread(DATA, filters)
+    result = spread.avg_cost()
+    print(result)
+    assert result == 1005
+
+
+def test_win_rate_singles():
     filters = {
         "start_date": datetime(2018, 1, 1),
         "end_date": datetime(2018, 2, 28),
         "entry_dte": 31,
-        "leg1_delta": 0.30,
-        "exit_dte": 7,
+        "leg1_delta": 0.50,
+        "leg2_delta": 0.30,
+        "contract_size": 1,
+        "expr_type": "SPXW",
     }
+    spread = long_call(DATA, filters)
+    result = spread.calc_win_rate()
+    print(spread)
+    assert result == 0.5
 
-    backtest = long_call(DATA, filters)
-    print(results(backtest, filters))
-    assert results(backtest, filters) == {
-        "Profit": 9330.0,
-        "Win Percent": 0.5,
-        "Loss Percent": 0.5,
-        "Trades": 2,
+
+def test_win_rate_verticals():
+    filters = {
         "start_date": datetime(2018, 1, 1),
         "end_date": datetime(2018, 2, 28),
         "entry_dte": 31,
-        "leg1_delta": 0.30,
-        "exit_dte": 7,
+        "leg1_delta": 0.50,
+        "leg2_delta": 0.30,
+        "contract_size": 1,
+        "expr_type": "SPXW",
     }
+    spread = long_call_spread(DATA, filters)
+    result = spread.calc_win_rate()
+    print(spread)
+    assert result == 0

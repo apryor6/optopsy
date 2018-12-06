@@ -15,89 +15,112 @@
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import numpy as np
-from collections import OrderedDict
+import pandas as pd
+from pandas.core.base import PandasObject
 
 
-def calc_ending_balance(data, init_balance):
+def _agg_by(data, col):
+    return data.groupby(["trade_num"])[col].sum()
+
+
+def to_returns(data, init_balance=100000):
     window = np.insert(data["cost"].values, 0, init_balance, axis=0)
-    return np.subtract.accumulate(window)[-1]
+    return np.subtract.accumulate(window)
 
 
-def calc_total_trades(data):
+def to_monthly_returns(data):
+    pass
+
+
+def calc_annual_returns(data):
+    pass
+
+
+def calc_annual_sharpe_ratio(data):
+    pass
+
+
+def calc_max_drawdown_pct(data):
+    pass
+
+
+def draw_down_days(data):
+    pass
+
+
+def calc_win_rate(data):
+    grouped = _agg_by(data, "cost")
+    wins = (grouped <= 0).sum()
+    trades = total_trades(data)
+    return wins / trades
+
+
+def avg_days_in_trade(data):
+    pass
+
+
+def total_trades(data):
     return data.index.max() + 1
 
 
-def calc_total_profit(data):
-    return data["cost"].sum().round(2) * -1
+def total_profit(data):
+    return data["cost"].sum() * -1
 
 
-def _calc_with_groups(data):
-    df = data.groupby("trade_num")["cost"].sum()
-    wins = df[df <= 0].count()
-    losses = df[df > 0].count()
-    return {
-        "win_cnt": wins,
-        "win_pct": float("%.2f" % round(wins / df.size, 2)),
-        "loss_cnt": losses,
-        "loss_pct": float("%.2f" % round(losses / df.size, 2)),
-    }
+def avg_profit(data):
+    return data.pipe(_agg_by, "cost").mean() * -1
 
 
-def _calc_opt_px(data, action):
-    ask = data[f"ask_{action}"] * data["ratio"]
-    bid = data[f"bid_{action}"] * data["ratio"]
-
-    if action == "entry":
-        return np.where(data["ratio"] > 0, ask, bid)
-    elif action == "exit":
-        return np.where(data["ratio"] > 0, bid * -1, ask * -1)
+def avg_cost(data):
+    return data.pipe(_agg_by, "entry_opt_price").multiply(100).mean()
 
 
-def _calc_midpint_opt_px(data, action):
-    bid_ask = [f"bid_{action}", f"ask_{action}"]
-    if action == "entry":
-        return data[bid_ask].mean(axis=1) * data["ratio"]
-    elif action == "exit":
-        return data[bid_ask].mean(axis=1) * data["ratio"] * -1
+def stats(data, round=2):
+    output = calc_stats(data, transpose=True, round=round)
+    print(output)
+    return output
 
 
-def _assign_opt_px(data, mode, action):
-    if mode == "midpoint":
-        data[f"{action}_opt_price"] = _calc_midpint_opt_px(data, action)
-    elif mode == "market":
-        data[f"{action}_opt_price"] = _calc_opt_px(data, action)
+def trades(data):
+    print(data)
     return data
 
 
-def assign_trade_num(data, groupby):
-    data["trade_num"] = data.groupby(groupby).ngroup()
-    data.set_index("trade_num", inplace=True)
-    return data
+def calc_stats(data, fil=None, transpose=False, round=2):
+    if data is not None:
+        results = {
+            "Profit": total_profit(data),
+            "Win Rate": calc_win_rate(data),
+            "Trades": total_trades(data),
+            "Avg Profit": avg_profit(data),
+            "Avg Cost": avg_cost(data),
+        }
+        if transpose:
+            return (
+                pd.DataFrame.from_records([results], index=["Results"])
+                .transpose()
+                .round(round)
+            )
+        elif fil is not None and not transpose:
+            return {**results, **fil}
+        else:
+            return results
+    else:
+        print("No data was passed to results function")
 
 
-def calc_entry_px(data, mode="midpoint"):
-    return _assign_opt_px(data, mode, "entry")
-
-
-def calc_exit_px(data, mode="midpoint"):
-    return _assign_opt_px(data, mode, "exit")
-
-
-def calc_pnl(data):
-    # calculate the p/l for the trades
-    data["entry_price"] = data["entry_opt_price"] * data["contracts"] * 100
-    data["exit_price"] = data["exit_opt_price"] * data["contracts"] * 100
-    data["cost"] = data["exit_price"] + data["entry_price"]
-    return data.round(2)
-
-
-def results(data, f):
-    r = {
-        "Profit": calc_total_profit(data),
-        "Win Percent": _calc_with_groups(data)["win_pct"],
-        "Loss Percent": _calc_with_groups(data)["loss_pct"],
-        "Trades": calc_total_trades(data),
-    }
-
-    return {**r, **f}
-
+def extend_pandas():
+    PandasObject.to_returns = to_returns
+    PandasObject.to_monthly_returns = to_monthly_returns
+    PandasObject.calc_annual_returns = calc_annual_returns
+    PandasObject.calc_annual_sharpe_ratio = calc_annual_sharpe_ratio
+    PandasObject.calc_max_drawdown_pct = calc_max_drawdown_pct
+    PandasObject.draw_down_days = draw_down_days
+    PandasObject.calc_win_rate = calc_win_rate
+    PandasObject.stats = stats
+    PandasObject.trades = trades
+    PandasObject.avg_days_in_trade = avg_days_in_trade
+    PandasObject.total_trades = total_trades
+    PandasObject.total_profit = total_profit
+    PandasObject.avg_profit = avg_profit
+    PandasObject.avg_cost = avg_cost

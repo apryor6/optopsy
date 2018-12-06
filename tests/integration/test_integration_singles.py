@@ -244,4 +244,3 @@ def test_short_put_midpoint_integration():
         and backtest.iat[1, 9] == -0.3
         and backtest.iat[1, 16] == 6290.0
     )
-
